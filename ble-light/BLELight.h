@@ -9,8 +9,8 @@
 // Works with Consmart/Triones/Flyidea  
 // Tested on Triones
 
-static BLEUUID BLE_NOTIFICATION_SERVICE_WRGB_UUID("0000ffd5-0000-1000-8000-00805f9b34fb");
-static BLEUUID BLE_NOTIFICATION_CHARACTERISTICS_WRGB_UUID("0000ffd9-0000-1000-8000-00805f9b34fb");
+static BLEUUID MAIN_SERVICE("0000ffd5-0000-1000-8000-00805f9b34fb");
+static BLEUUID WRITE_CHAR("0000ffd9-0000-1000-8000-00805f9b34fb");
 
 #define SMOOTH_RAINBOW      37
 #define PULSATING_RED       38
@@ -43,7 +43,7 @@ class BLELight {
     bool connect(BLEAddress pAddress); 
     void turnOn(); 
     void turnOff(); 
-    void setColor(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness, bool warmWhite); 
+    void setColor(uint8_t r, uint8_t g, uint8_t b);//, uint8_t brightness, bool warmWhite); 
     void disconnect();
     void setMode(uint8_t mode, uint8_t speed);
     
@@ -59,33 +59,30 @@ BLELight::BLELight() {
 }
 
 bool BLELight::connect(BLEAddress pAddress){    
-    pClient  = BLEDevice::createClient();    
-    Serial.println("[BLELight] - Created BLE client");
-
+    pClient  = BLEDevice::createClient();
     Serial.println("[BLELight] - Connecting.. ");    
     pClient->connect(pAddress);
 
     if(pClient->isConnected()) {
       Serial.println("[BLELight] - Connected to BLE Light");
     } else {
-      Serial.println("[BLELight] - Connection failed!");  
+      Serial.println("[BLELight] - Connection failed!");
+      pClient->disconnect();
+      return false;  
     }
     
-//    std::map<std::string, BLERemoteService*>* pServices = pClient->getServices();
-//    Serial.println("[BLELight] - Services : " + String(pServices->size()));
-//    for (std::map<std::string, BLERemoteService*>::iterator it = pServices->begin(); it != pServices->end(); ++it) {
-//      Serial.println(it->first.c_str());
-//    }
- 
-    BLERemoteService *pRemoteService = pClient->getService(BLE_NOTIFICATION_SERVICE_WRGB_UUID);
+    Serial.println("XXX");
+    delay(1000); // https://github.com/nkolban/esp32-snippets/issues/874#issuecomment-944862272
     
+    BLERemoteService *pRemoteService = pClient->getService(MAIN_SERVICE);
+        
     if (pRemoteService == nullptr) {
-      Serial.println("[BLELight] - Failed to find WRGB service!");
+      Serial.println("[BLELight] - Failed to find RGB service!");
       pClient->disconnect();
       return false;
     } 
 
-    pRemoteCharacteristic = pRemoteService->getCharacteristic(BLE_NOTIFICATION_CHARACTERISTICS_WRGB_UUID);
+    pRemoteCharacteristic = pRemoteService->getCharacteristic(WRITE_CHAR);
     if (pRemoteCharacteristic == nullptr)
     {
       Serial.println("[BLELight] - Failed to find WRGB_UUID characteristic!");
@@ -93,7 +90,8 @@ bool BLELight::connect(BLEAddress pAddress){
       return false;
     } 
 
-    isConnected = true;    
+    isConnected = true;
+    Serial.println("BLELight::connect true");
     return true; 
 }
 
@@ -117,23 +115,18 @@ void BLELight::turnOff(){
     }
 }
 
-void BLELight::setColor(uint8_t r, uint8_t g, uint8_t b, uint8_t brightness, bool warmWhite){   
+void BLELight::setColor(uint8_t r, uint8_t g, uint8_t b){   
     if(isConnected) {
       uint8_t payload[7];
 
-      Serial.printf("[BLELight] - Set color [R: %d G: %d B:%d], brightness: %d\r\n", r, b, b, brightness);
+      Serial.printf("[BLELight] - Set color [R: %d G: %d B:%d] \r\n", r, g, b);
       
       payload[0] = 0x56;
       payload[1] = r; //R
       payload[2] = g; //G
       payload[3] = b; // B
-      payload[4] = brightness; //brightness
-
-      if(warmWhite)
-        payload[5] = 0x0F; // 0xF0 = White /  0x0F = Warm White
-      else 
-        payload[5] = 0xF0;
-        
+      payload[4] = 0x00; //brightness; //brightness
+      payload[5] = 0xF0;  
       payload[6] = 0xAA;    
       
       pRemoteCharacteristic->writeValue(payload, 7);
