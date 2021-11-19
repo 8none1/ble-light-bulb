@@ -31,9 +31,15 @@ void loop() {
     delay(10000);
     bleLight.turnOff();
 
+    bleLight.getStatus();
+    Serial.println("Sent status request");
+    delay(5000);
     Serial.println("Done");
     bleLight.disconnect();
   }
-  delay(5000);
-
+  Serial.println("Send me a key press to continue");
+  while (Serial.available() == 0) {
+    delay(100);
+  }
+  while (Serial.available()) char a = Serial.read();
 }
